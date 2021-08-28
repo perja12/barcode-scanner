@@ -1,0 +1,115 @@
+<html>
+<head>
+    <title>Html-Qrcode Demo</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="./webmanifest.json">
+    <script src="./html5-qrcode.min.js"></script>
+</head>
+<body>
+    <div id="qr-reader" style="width:900px"></div>
+    <div id="qr-reader-results">Results</div>
+
+    <form>
+        <button>Connect 3</button>
+    </form>
+
+    <script type="module">
+     import {mapTextToLayout, replaceControlChars} from "./main.js";
+
+     const KEYBOARD_SERVICE_UUID = "4a98a000-1cc4-e7c1-c757-f1267dd021e8";
+     const KEYBOARD_CHAR_UUID = "4a98a001-1cc4-e7c1-c757-f1267dd021e8";
+     const SEGMENT_SIZE = 19;
+
+     async function connectBLE() {
+         try {
+             console.log('Requesting Bluetooth Device...');
+             const device  = await navigator.bluetooth.requestDevice({
+                 filters: [{name: 'BarcodeScanner'}],
+                 optionalServices: [
+                     KEYBOARD_SERVICE_UUID
+                 ],
+             });
+
+             const server = await device.gatt.connect();
+             const service = await server.getPrimaryService(KEYBOARD_SERVICE_UUID);
+             const char = await service.getCharacteristic(KEYBOARD_CHAR_UUID);
+             return char;
+         } catch(error) {
+             console.log('connectBLE error: ' + error);
+         }
+     }
+
+     function docReady(fn) {
+         // see if DOM is already available
+         if (document.readyState === "complete"
+             || document.readyState === "interactive") {
+             // call on next available tick
+             setTimeout(fn, 1);
+         } else {
+             document.addEventListener("DOMContentLoaded", fn);
+         }
+     }
+
+     docReady(function () {
+         window.screen.orientation
+               .lock("portrait")
+               .then(
+                   success => console.log("orientation lock success", success),
+                   failure => console.log("orientation lock failure", failure)
+               )
+
+         var resultContainer = document.getElementById('qr-reader-results');
+         var lastResult = 0;
+         var audio = new Audio('./spjong.wav');
+
+         var html5QrcodeScanner = new Html5QrcodeScanner(
+             "qr-reader", { fps: 40, qrbox: 600 });
+
+         document.querySelector('form').addEventListener('submit', function(event) {
+             event.stopPropagation();
+             event.preventDefault();
+             if (navigator.bluetooth) {
+                 connectBLE()
+                     .then(characteristic => {
+                         // This is a callback function used by the html5qr lib and
+                         // is defined here to make sure the characteristic needed by sendValue
+                         // is initialized.
+                         function onScanSuccess(decodedText, decodedResult) {
+                             if (decodedText !== lastResult) {
+                                 lastResult = decodedText;
+                                 console.log(`Scan result ${decodedText}`, decodedResult);
+
+                                 let controlCharsReplaced = replaceControlChars(decodedText);
+                                 console.log("controlCharsReplaced: ", controlCharsReplaced);
+
+                                 // Add Enter
+                                 //controlCharsReplaced += '\x0A';
+
+                                 let segments = mapTextToLayout(controlCharsReplaced, SEGMENT_SIZE);
+                                 console.log("mappedText returned: ", segments);
+
+                                 (async() => {
+                                     for (let i = 0; i < segments.length; i++) {
+                                         try {
+                                             console.log("segment: ", segments[i]);
+                                             await characteristic.writeValueWithoutResponse(new Uint8Array(segments[i]));
+                                         } catch(error) {
+                                             console.log('writeValue error: ' + error);
+                                         }
+                                     }
+                                 })();
+                                 resultContainer.innerHTML = decodedText + " " + decodedResult + "<br>" + controlCharsReplaced;
+                                 audio.play();
+                             }
+                         }
+                         html5QrcodeScanner.render(onScanSuccess);
+                     })
+             } else {
+                 console.log("WebBluetooth is not supported!");
+             }
+         });
+     });
+    </script>
+</body>
+</html>
