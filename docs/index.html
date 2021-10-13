@@ -78,6 +78,7 @@
          }
 
          function startScanning(html5QrCode, characteristic) {
+             console.log("Start scanning");
              // This method will trigger user permissions
              Html5Qrcode.getCameras().then(devices => {
                  /**
@@ -90,7 +91,7 @@
                  }
 
                  if (devices && devices.length) {
-                     var cameraId = devices[0].id;
+                     var cameraId = devices[3].id;
                      var lastResult = 0;
                      var resultContainer = document.getElementById('results');
                      var qrBoxWidth = Math.round(document.getElementById("qr-reader").offsetWidth * 0.65);
@@ -100,11 +101,11 @@
                      console.log("height: ", height);
 
                      html5QrCode.start(
-                         //cameraId,
-                         { facingMode: { exact: "environment"} },
+                         cameraId,
+                         //{ facingMode: { exact: "environment"} },
                          {
-                             fps: 40,    // Optional, frame per seconds for qr code scanning
-                             qrbox: { width: 250, height: 250, aspectRatio: 1.0 }, // Optional, if you want bounded box UI
+                             fps: 10,    // Optional, frame per seconds for qr code scanning
+                             qrbox: { width: 150, height: 150, aspectRatio: 1.0 }, // Optional, if you want bounded box UI
                          },
                          (decodedText, decodedResult) => {
                              console.log("Decoded text: ", decodedText);
@@ -115,6 +116,7 @@
                              }
                          },
                          (errorMessage) => {
+                             console.log("Error: ", errorMessage);
                              // ignore
                          }
                      ).catch((err) => {
@@ -149,6 +151,7 @@
              const audio = new Audio('./spjong.wav');
 
              const html5QrCode = new Html5Qrcode("qr-reader");
+//               { formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ] });
 
              const stopButton = document.getElementById('stop-button-id');
              stopButton.addEventListener('click', function() {
