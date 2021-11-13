@@ -5,12 +5,12 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <link rel="manifest" href="./webmanifest.json">
         <link rel="stylesheet" href="style.css">
-        <script src="./html5-qrcode.min.js"></script>
+        <script type="text/javascript" src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
     </head>
     <body>
         <div class="top"><h1>Barcode scanner</div>
         <div class="scanner">
-            <div id="qr-reader"></div>
+            <video id="qr-reader" width="300" height="300" style="border: 1px solid gray"></video>
         </div>
         <div class="result">
             <div id="results">Nothing scanned</div>
@@ -48,14 +48,8 @@
              }
          }
 
-         function stopScanning(html5QrCode) {
-             html5QrCode.stop().then((ignore) => {
-                 html5QrCode.clear();
-                 //bluetoothDevice.gatt.disconnect();
-                 // QR Code scanning is stopped.
-             }).catch((err) => {
-                 // Stop failed, handle it.
-             });
+         function stopScanning(codeReader) {
+             codeReader.reset()
          }
 
          function writeCharacteristic(characteristic, decodedText) {
@@ -69,7 +63,7 @@
                  for (let i = 0; i < segments.length; i++) {
                      try {
                          console.log("segment: ", segments[i]);
-                         characteristic.writeValueWithoutResponse(new Uint8Array(segments[i]));
+                         await characteristic.writeValueWithoutResponse(new Uint8Array(segments[i]));
                      } catch(error) {
                          console.log('writeValue error: ' + error);
                      }
@@ -77,69 +71,49 @@
              })();
          }
 
-         function startScanning(html5QrCode, characteristic) {
-             console.log("Start scanning");
-             // This method will trigger user permissions
-             Html5Qrcode.getCameras().then(devices => {
-                 /**
-                  * devices would be an array of objects of type:
-                  * { id: "id", label: "label" }
-                  */
-                 console.log("Devices: ");
-                 for (let i = 0; i < devices.length; i++) {
-                     console.log(devices[i]);
+         function startScanning(codeReader, characteristic, videoDeviceId, audio) {
+             console.log("Start scanning: ", videoDeviceId);
+             var lastResult;
+             codeReader.decodeFromVideoDevice(videoDeviceId, 'qr-reader', (result, err) => {
+                 if (result && result.text !== lastResult) {
+                     lastResult = result.text;
+                     audio.play();
+                     console.log(result)
+                     document.getElementById('results').innerHTML = result.text
+                     writeCharacteristic(characteristic, result.text);
                  }
-
-                 if (devices && devices.length) {
-                     var cameraId = devices[3].id;
-                     var lastResult = 0;
-                     var resultContainer = document.getElementById('results');
-                     var qrBoxWidth = Math.round(document.getElementById("qr-reader").offsetWidth * 0.65);
-                     var width = document.getElementById("qr-reader").offsetWidth;
-                     var height = document.getElementById("qr-reader").clientHeight;
-                     console.log("width: ", width);
-                     console.log("height: ", height);
-
-                     html5QrCode.start(
-                         cameraId,
-                         //{ facingMode: { exact: "environment"} },
-                         {
-                             fps: 10,    // Optional, frame per seconds for qr code scanning
-                             qrbox: { width: 150, height: 150, aspectRatio: 1.0 }, // Optional, if you want bounded box UI
-                         },
-                         (decodedText, decodedResult) => {
-                             console.log("Decoded text: ", decodedText);
-                             if (decodedText !== lastResult) {
-                                 writeCharacteristic(characteristic, decodedText);
-                                 resultContainer.innerHTML = decodedText;
-                                 lastResult = decodedText;
-                             }
-                         },
-                         (errorMessage) => {
-                             console.log("Error: ", errorMessage);
-                             // ignore
-                         }
-                     ).catch((err) => {
-                         console.log("Error: ", err);
-                     });
+                 if (err && !(err instanceof ZXing.NotFoundException)) {
+                     console.error(err)
+                     document.getElementById('results').innerHTML = err
                  }
-             }).catch(err => {
-                 console.log(err);
-             });
+             })
+             console.log(`Started continous decode from camera with id ${videoDeviceId}`)
          }
 
-         function docReady(fn) {
-             // see if DOM is already available
-             if (document.readyState === "complete"
-                 || document.readyState === "interactive") {
-                 // call on next available tick
-                 setTimeout(fn, 1);
-             } else {
-                 document.addEventListener("DOMContentLoaded", fn);
+         async function listVideoDevices(codeReader) {
+             const inputs = await codeReader.listVideoInputDevices();
+             let selectedDeviceId = inputs[0].deviceId;
+             if (inputs.length > 1) {
+                 selectedDeviceId = inputs[3].deviceId;
+                 //inputs.forEach((element) => {
+                 //    const sourceOption = document.createElement('option')
+                 //    sourceOption.text = element.label
+                 //    sourceOption.value = element.deviceId
+                 //    sourceSelect.appendChild(sourceOption)
+                 //})
+
+                 //sourceSelect.onchange = () => {
+                 //    selectedDeviceId = sourceSelect.value;
+                 //};
+
+                 //const sourceSelectPanel = document.getElementById('sourceSelectPanel')
+                 //sourceSelectPanel.style.display = 'block'
              }
+             console.log("Selected input: ", selectedDeviceId);
+             return selectedDeviceId;
          }
 
-         docReady(function () {
+         window.addEventListener('load', function () {
              /*
                 window.screen.orientation
                 .lock("portrait")
@@ -150,16 +124,14 @@
               */
              const audio = new Audio('./spjong.wav');
 
-             const html5QrCode = new Html5Qrcode("qr-reader");
-//               { formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ] });
+             const codeReader = new ZXing.BrowserMultiFormatReader()
 
              const stopButton = document.getElementById('stop-button-id');
              stopButton.addEventListener('click', function() {
                  event.stopPropagation();
                  event.preventDefault();
-                 stopScanning(html5QrCode);
-
-             }.bind(html5QrCode));
+                 stopScanning(codeReader);
+             }.bind(codeReader));
 
              const startButton = document.getElementById('start-button-id');
              startButton.addEventListener('click', function(event) {
@@ -168,9 +140,12 @@
 
                  connectBLE()
                      .then(characteristic => {
-                         startScanning(html5QrCode, characteristic);
+                         listVideoDevices(codeReader).then(id => {
+                             console.log("CameraDeviceId: ", id);
+                             startScanning(codeReader, characteristic, id, audio);
+                         });
                      });
-             }.bind(html5QrCode));
+             }.bind(codeReader).bind(audio));
          });
         </script>
     </body>

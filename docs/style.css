@@ -20,7 +20,7 @@ h1 {
 }
 
 video {
-  width: 100%;
+    object-fit: fill;
 }
 
 .scanner {

@@ -116,8 +116,11 @@ const keymap_no = [
     [0x19, KEY_SHIFT],              /* V */
     [0x1a, KEY_SHIFT],              /* W */
     [0x1b, KEY_SHIFT],              /* X */
-    [0x1d, KEY_SHIFT],              /* Y */
-    [0x1c, KEY_SHIFT],              /* Z */
+    [0x1c, KEY_SHIFT],              /* Y */
+    [0x1d, KEY_SHIFT],              /* Z */
+    //[0x34, KEY_SHIFT],              /* Æ */
+    //[0x33, KEY_SHIFT],              /* Ø */
+    //[0x2f, KEY_SHIFT],              /* Å */
     [0x25, KEY_RALT],               /* [ */
     [0x2d, KEY_RALT],               /* bslash */
     [0x26, KEY_RALT],               /* ] */
@@ -148,12 +151,16 @@ const keymap_no = [
     [0x19, 0],                      /* v */
     [0x1a, 0],                      /* w */
     [0x1b, 0],                      /* x */
-    [0x1d, 0],                      /* y */
-    [0x1c, 0],                      /* z */
+    [0x1c, 0],                      /* y */
+    [0x1d, 0],                      /* z */
+//    [0x34, 0],                      /* æ */
+//    [0x33, 0],                      /* ø */
+//    [0x2f, 0],                      /* å */
     [0x24, KEY_RALT],               /* { */
     [0x64, KEY_RALT],               /* | */
     [0x27, KEY_RALT],               /* } */
     [0x30, KEY_RALT],               /* ~ */
+    [0x20, KEY_RALT],               /* £ */
     [0x00, 0],                      /* DEL */
     [0x3a, 0],                      /* F1 */
     [0x3b, 0],                      /* F2 */
